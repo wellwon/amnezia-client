@@ -1,14 +1,15 @@
 from conan import ConanFile
 from conan.tools.layout import basic_layout
 from conan.errors import ConanInvalidConfiguration
-from conan.tools.files import get, copy, chdir
+from conan.tools.files import get, copy, chdir, replace_in_file
 from conan.tools.gnu import AutotoolsToolchain
 
 import os
 
 class AwgWindows(ConanFile):
     name = "awg-windows"
-    version = "3.1.20260814"
+    version = "3.1.20260814-tribe.1"
+    _upstream_version = "3.1.20260814"
     settings = "os", "arch"
 
     @property
@@ -62,8 +63,16 @@ class AwgWindows(ConanFile):
         self.requires("wintun/[*]")
 
     def source(self):
-        get(self, f"https://github.com/amnezia-vpn/amneziawg-windows/archive/refs/tags/v{self.version}.zip",
+        get(self, f"https://github.com/amnezia-vpn/amneziawg-windows/archive/refs/tags/v{self._upstream_version}.zip",
             sha256="d941861e3c0fada70b6b66b08aad4c77098d612aa11dd41b8ad70dd8afa6c61b", strip_root=True)
+        # AVPN: preserve the upstream DLL wrapper; update its pinned Go core.
+        for filename in ("go.mod", "go.sum"):
+            replace_in_file(self, os.path.join(self.source_folder, filename),
+                "github.com/amnezia-vpn/amneziawg-go/v3 v3.1.20260814",
+                "github.com/amnezia-vpn/amneziawg-go/v3 v3.1.20260828", strict=True)
+        replace_in_file(self, os.path.join(self.source_folder, "go.sum"),
+            "h1:l2AhBD+sFycU8Im81n/bZORMxW7fWtlZJEuJ4Hh0+z0=",
+            "h1:D8d8gGvwXcTxUIsE4z6F6vjy4/VZddu95vMNtOygh1c=", strict=True)
         
     def generate(self):
         tc = AutotoolsToolchain(self)

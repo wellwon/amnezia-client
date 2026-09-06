@@ -10,14 +10,15 @@ import hashlib
 
 class AwgAndroid(ConanFile):
     name = "awg-android"
-    version = "3.1.20260814"
+    version = "3.1.20260814-tribe.1"
+    _upstream_version = "3.1.20260814"
     settings = "os", "arch", "build_type", "compiler"
 
     # AVPN: tags in this repository have moved before.  Verify both the
     # wrapper commit and the Go module it embeds, instead of trusting a tag.
     _AWG_ANDROID_COMMIT = "5c16489e2cd9ed3a0a7a27c7445bba5238132f86"
     _AWG_GO_V3_REQ = (
-        "github.com/amnezia-vpn/amneziawg-go/v3 v3.1.20260814"
+        "github.com/amnezia-vpn/amneziawg-go/v3 v3.1.20260828"
     )
     _PROTECTED_START_SOURCE_SHA256 = (
         "30e870eb2f670e6faee25c253c03d103a697622f4944033ce044a6d593f2d7c6"
@@ -62,7 +63,7 @@ class AwgAndroid(ConanFile):
         git.clone(
             url="https://github.com/amnezia-vpn/amneziawg-android.git",
             target="upstream",
-            args=["--recurse-submodules", "--branch", f"v{self.version}"]
+            args=["--recurse-submodules", "--branch", f"v{self._upstream_version}"]
         )
         actual_commit = Git(self, folder=self._upstream_root).get_commit().strip()
         if actual_commit != self._AWG_ANDROID_COMMIT:
@@ -70,6 +71,15 @@ class AwgAndroid(ConanFile):
                 "awg-android: tag v{} resolved to {}, expected immutable {}"
                 .format(self.version, actual_commit, self._AWG_ANDROID_COMMIT)
             )
+        # AVPN: retain the immutable JNI wrapper and upgrade only its Go core.
+        go_dir = os.path.join(self._upstream_root, "tunnel", "tools", "libwg-go")
+        for filename in ("go.mod", "go.sum"):
+            replace_in_file(self, os.path.join(go_dir, filename),
+                "github.com/amnezia-vpn/amneziawg-go/v3 v3.1.20260814",
+                self._AWG_GO_V3_REQ, strict=True)
+        replace_in_file(self, os.path.join(go_dir, "go.sum"),
+            "h1:l2AhBD+sFycU8Im81n/bZORMxW7fWtlZJEuJ4Hh0+z0=",
+            "h1:D8d8gGvwXcTxUIsE4z6F6vjy4/VZddu95vMNtOygh1c=", strict=True)
 
     def generate(self):
         tc = CMakeToolchain(self)

@@ -20,7 +20,7 @@ class AwgApple(ConanFile):
     # AVPN: official v3.1.4 contains the AWG 3.1 parser fix.  The package
     # suffix is deliberate: it also carries the small, reviewable Tribe
     # split-DNS/warmup/rebind patch from the old fork.
-    version = "3.1.4-tribe.4"
+    version = "3.1.4-tribe.5"
     settings = "os", "arch", "compiler"
 
     _upstream_version = "3.1.4"
@@ -118,6 +118,9 @@ class AwgApple(ConanFile):
         prep_env.define("GOCACHE", go_cache)
         prep_env.define("GOFLAGS", "")
         with prep_env.vars(self).apply():
+            # AVPN: upstream wrapper is unchanged; ship the verified AWG fixes
+            # for DisableCookies under load and UDP-window padding on every platform.
+            self.run("go mod edit -require=github.com/amnezia-vpn/amneziawg-go/v3@v3.1.20260828")
             self.run("go mod tidy")
             self.run("go mod vendor")
         patch(
@@ -173,7 +176,7 @@ class AwgApple(ConanFile):
             "AWG_APPLE_ADAPTER_VERSION": self.version,
             "AWG_APPLE_UPSTREAM_VERSION": self._upstream_version,
             "AWG_APPLE_SOURCE_COMMIT": "811f5c8213e6b257e9520fff713ec4d22086e9ac",
-            "AWG_APPLE_AWG_CORE_VERSION": "3.1.20260814",
+            "AWG_APPLE_AWG_CORE_VERSION": "3.1.20260828",
             "AWG_APPLE_XRAY_ADAPTER_VERSION": "1.0.3",
             "AWG_APPLE_XRAY_SOURCE_COMMIT": "e8cc06d7427251fa549093e7cc32c28b0f5fbafa",
             "AWG_APPLE_XRAY_CORE_VERSION": "1.260728.0",

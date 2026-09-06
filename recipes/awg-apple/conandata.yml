@@ -1,4 +1,9 @@
 patches:
+  "3.1.4-tribe.5":
+    # Existing Tribe adapters with AWG core v3.1.20260828.
+    - patch_file: "patches/0001-tribe-dnsfwd-warmup-rebind.patch"
+    - patch_file: "patches/0002-xray-socket-protection-result.patch"
+    - patch_file: "patches/0003-tribe-seamless-roaming.patch"
   "3.1.4-tribe.3":
     # AVPN: rebases the six-file Tribe delta from de8b6ea onto official
     # v3.1.4, except the old unknown-key log+skip parser change.  v3.1.4's

@@ -19,12 +19,12 @@ class AmneziaVPN(ConanFile):
 
         if has_service:
             if os == "Windows":
-                self.requires("awg-windows/3.1.20260814")
+                self.requires("awg-windows/3.1.20260814-tribe.1")
                 self.requires("tap-windows6/9.27.0")
                 self.requires("win-split-tunnel/1.2.5.0")
                 self.requires("wintun/0.14.1")
             else:
-                self.requires("awg-go/3.1.20260814")
+                self.requires("awg-go/3.1.20260828")
 
             self.requires("amnezia-xray-bindings/1.4.0")
             self.requires("tun2socks/2.6.0")
@@ -34,13 +34,13 @@ class AmneziaVPN(ConanFile):
         if has_ne:
             # Official parser-fixed 3.1.4 plus the existing Tribe
             # dnsfwd/warmup/rebind patch set.
-            self.requires("awg-apple/3.1.4-tribe.4")
+            self.requires("awg-apple/3.1.4-tribe.5")
             self.requires("hev-socks5-tunnel/2.15.0", options={"as_framework": True})
             self.requires("openvpnadapter/1.0.0")
 
         if os == "Android":
             self.requires("amnezia-libxray/1.0.3-tribe.1")
-            self.requires("awg-android/3.1.20260814")
+            self.requires("awg-android/3.1.20260814-tribe.1")
             self.requires("openvpn-pt-android/1.0.0")
 
         # expicitly use libssh@amnezia to prevent it from being downloaded from conan-center
