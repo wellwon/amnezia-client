@@ -22,6 +22,7 @@
 #include "NodeRotation.h" // AVPN (Task 10 финал): isSupportedProto — xray-ноды мимо свипа/выбора
 #include "RttProbeIcmp.h" // AVPN (выбор по скорости): прямой ICMP-замер RTT до нод off-tunnel
 #include "BenchAnalysis.h" // AVPN (панель администратора): вердикты + A/B-сравнение замеров
+#include "Ipv6Presence.h" // AVPN (IPv6-волна): есть ли у сети глобальный v6 мимо туннеля (Доктор)
 #ifdef Q_OS_IOS
 #include "platforms/ios/AvpnDiagnostics.h" // AVPN backend-first (2026-07-10): crash-diag следует за edge-walk базой
 #endif
@@ -70,6 +71,7 @@
 #include <QJsonDocument> // AVPN (панель администратора): сериализация результата бенча
 
 #include <QNetworkInformation> // AVPN (авто-A/B): тип сети (Wi-Fi/сотовая) в extra{} бенча
+#include <QNetworkInterface>   // AVPN (IPv6-волна): срез адресов для detectLanIpv6()
 #include <QSysInfo>      // AVPN (панель администратора): platform в extra{} бенча
 #include <QTimeZone>     // AVPN (панель администратора): tz в extra{} — физлокация vs egress
 #include "ui/controllers/systemController.h" // AVPN (панель администратора): saveReportFile → файл/шэр отчёта
@@ -5804,6 +5806,28 @@ void AvpnEngineQml::docStartNetwork()
         docNetMaybeDone();
 }
 
+int AvpnEngineQml::detectLanIpv6() const
+{
+    // Kill-switch: бэкенд может убрать фразу про IPv6 из Доктора без релиза.
+    if (!avpn::TuningStore::flag(QStringLiteral("ipv6_notice"), true))
+        return -1;
+
+    QList<QPair<QString, QString>> snapshot;
+    const auto ifaces = QNetworkInterface::allInterfaces();
+    for (const QNetworkInterface &iface : ifaces) {
+        const auto flags = iface.flags();
+        // Погашенный или loopback-интерфейс — не «сеть пользователя».
+        if (!flags.testFlag(QNetworkInterface::IsUp)
+            || !flags.testFlag(QNetworkInterface::IsRunning)
+            || flags.testFlag(QNetworkInterface::IsLoopBack))
+            continue;
+        const auto entries = iface.addressEntries();
+        for (const QNetworkAddressEntry &entry : entries)
+            snapshot.append({iface.name(), entry.ip().toString()});
+    }
+    return avpn::hasOffTunnelGlobalV6(snapshot);
+}
+
 void AvpnEngineQml::docNetMaybeDone()
 {
     if (m_docNetPending > 0 && --m_docNetPending > 0)
@@ -5811,7 +5835,7 @@ void AvpnEngineQml::docNetMaybeDone()
     docStageDone(doctor::networkStage(
         m_docNetCaptive, benchExtra().value(QStringLiteral("net_type")).toString(),
         avpn::cellularGeneration(), avpn::meteredState(), avpn::roamingState(), m_docNetWl,
-        benchExtra().value(QStringLiteral("carrier")).toString()));
+        benchExtra().value(QStringLiteral("carrier")).toString(), detectLanIpv6()));
 }
 
 void AvpnEngineQml::docStartConnect()
@@ -6058,7 +6082,7 @@ void AvpnEngineQml::docGuardFired()
         docStageDone(doctor::networkStage(
             m_docNetCaptive, benchExtra().value(QStringLiteral("net_type")).toString(),
             avpn::cellularGeneration(), avpn::meteredState(), avpn::roamingState(), m_docNetWl,
-            benchExtra().value(QStringLiteral("carrier")).toString()));
+            benchExtra().value(QStringLiteral("carrier")).toString(), detectLanIpv6()));
         break;
     case DoctorPhase::Connect: {
         // сторож: либо не поднялись (45с), либо зависла проба данных (15с) — вердикт по факту

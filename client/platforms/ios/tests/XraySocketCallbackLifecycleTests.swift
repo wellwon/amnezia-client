@@ -189,12 +189,42 @@ private func testIPv4RouteSpec() {
         "malformed CIDR is rejected")
 }
 
+// AVPN (IPv6-волна 2026-09-08): NEIPv6Route требует СЕТЕВОЙ адрес префикса, а не произвольный хост
+// внутри него, и не принимает v4/scope-строки. Тот же контракт, что у IPv4RouteSpec выше, —
+// нужен для v6-половины RU-split на xray-пути (2174 префикса ru_prefixes.h).
+private func testIPv6RouteSpec() {
+    let expanded = IPv6RouteSpec(cidr: "2001:0640:0000:0000:0000:0000:0000:0000/32")
+    expect(expanded?.destinationAddress == "2001:640::" && expanded?.networkPrefixLength == 32,
+           "expanded IPv6 CIDR is canonicalized (RFC 5952)")
+    let hostBits = IPv6RouteSpec(cidr: "2001:640:1:2::5/32")
+    expect(hostBits?.destinationAddress == "2001:640::" && hostBits?.networkPrefixLength == 32,
+           "host bits are masked before creating NEIPv6Route")
+    let defaultRoute = IPv6RouteSpec(cidr: "::/0")
+    expect(defaultRoute?.destinationAddress == "::" && defaultRoute?.networkPrefixLength == 0,
+           "default IPv6 route is valid")
+    let hostRoute = IPv6RouteSpec(cidr: "2606:4700:4700::1111/128")
+    expect(hostRoute?.destinationAddress == "2606:4700:4700::1111" &&
+           hostRoute?.networkPrefixLength == 128,
+           "/128 host route keeps every bit")
+    expect(IPv6RouteSpec(cidr: "10.0.0.0/8") == nil,
+           "IPv4 CIDR is never passed to NEIPv6Route")
+    expect(IPv6RouteSpec(cidr: "2001:640::/129") == nil,
+           "out-of-range prefix is rejected")
+    expect(IPv6RouteSpec(cidr: "fe80::1%en0/64") == nil,
+           "scoped address is rejected — a route has no interface scope")
+    expect(IPv6RouteSpec(cidr: "2001:640::") == nil,
+           "bare address without a prefix is rejected")
+    expect(IPv6RouteSpec(cidr: "not-a-route") == nil,
+           "malformed CIDR is rejected")
+}
+
 @main
 private struct XraySocketCallbackLifecycleTests {
     static func main() throws {
         testTrafficAccumulator()
         testRuntimeSession()
         testIPv4RouteSpec()
+        testIPv6RouteSpec()
 
         expect(XrayNativeCStringResult.consume(nil), "nil callback result is success")
         expect(XrayNativeCStringResult.consume(strdup("")),

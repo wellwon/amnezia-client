@@ -97,6 +97,42 @@ extension PacketTunnelProvider {
         return Int(bound.sin6_port.byteSwapped)
     }
 
+    // AVPN (IPv6-волна 2026-09-08): xray-путь ОБЯЗАН забирать `::/0` — ровно как AWG-путь.
+    //
+    // ЗАЧЕМ. Туннель v4-only (адрес 198.18.0.1, egress ноды — v4). Раньше здесь стояло
+    // `ipv6Enabled = false` и `settings.ipv6Settings = nil`, то есть NE не заявлял v6 ВООБЩЕ:
+    // на dual-stack сети (домашний Wi-Fi с IPv6 у провайдера) система оставляла v6 на физическом
+    // интерфейсе, и весь AAAA-трафик — Google/YouTube/Meta/Cloudflare — уходил МИМО туннеля с
+    // настоящим адресом пользователя. Это классическая IPv6-утечка, ровно то, от чего защищает
+    // решение #8 контракта. AWG-путь (PacketTunnelSettingsGenerator) её не имеет: у него
+    // `ipv6Settings` заявлены всегда, а адресов v6 нет — см. ниже, почему это и есть защита.
+    //
+    // КАК. `NEIPv6Settings` с ПУСТЫМ списком адресов + default-маршрут: v6 объявлен «нашим»,
+    // маршрут ведёт в туннель, но источника v6 у интерфейса нет ⇒ ядро отказывает уже на
+    // `connect()` за 0.0с, пакет не покидает устройство. Happy Eyeballs (RFC 8305) мгновенно
+    // уходит на IPv4 — dual-stack адресаты не замечают ничего. Цена честная и осознанная:
+    // адресат ТОЛЬКО с IPv6 при включённом VPN недостижим (см. CONNECT-INVARIANTS §24).
+    // ❌ НЕ выдавать сюда ULA-заглушку (`fd..::1/64`, как делает desktop-демон): с источником
+    // пакет уйдёт в tun2socks, у которого v6 не настроен, и вместо мгновенного отказа получится
+    // чёрная дыра с таймаутом — медленно и без объяснения.
+    //
+    // Kill-switch `features.xray_ipv6_capture` (default TRUE): false = прежнее поведение
+    // (v6 не заявляем). Ключ отсутствует (стейл-конфиг OS-init старта) ⇒ ЗАХВАТЫВАЕМ: дефолт
+    // выбран по безопасности, а не по «как было» — утечка адреса хуже недоступного v6-only хоста.
+    private func applyXrayIPv6Policy(_ xrayConfig: XrayConfig,
+                                     settings: NEPacketTunnelNetworkSettings) {
+        guard (xrayConfig.ipv6Capture ?? 1) != 0 else {
+            settings.ipv6Settings = nil
+            xrayLog(.info, message: "Tribe IPv6 (xray): capture OFF (kill-switch) — v6 stays off-tunnel")
+            return
+        }
+
+        let ipv6Settings = NEIPv6Settings(addresses: [], networkPrefixLengths: [])
+        ipv6Settings.includedRoutes = [NEIPv6Route.default()]
+        settings.ipv6Settings = ipv6Settings
+        xrayLog(.info, message: "Tribe IPv6 (xray): capture ON — ::/0 into the tunnel, no v6 source")
+    }
+
     private func applyXraySplitTunnel(_ xrayConfig: XrayConfig,
                                       settings: NEPacketTunnelNetworkSettings) {
         guard let splitTunnelType = xrayConfig.splitTunnelType else {
@@ -120,6 +156,9 @@ extension PacketTunnelProvider {
             }
 
             settings.ipv4Settings?.includedRoutes = ipv4IncludedRoutes
+            // AVPN (IPv6-волна 2026-09-08): v6-половина того же списка. Без неё include-режим
+            // оставлял бы `::/0` захваченным целиком — асимметрия с v4 и с AWG-путём.
+            settings.ipv6Settings?.includedRoutes = Self.ipv6Routes(from: splitTunnelSites)
         } else if splitTunnelType == 2 {
             var ipv4ExcludedRoutes = [NEIPv4Route]()
 
@@ -132,6 +171,23 @@ extension PacketTunnelProvider {
             }
 
             settings.ipv4Settings?.excludedRoutes = ipv4ExcludedRoutes
+            // AVPN (IPv6-волна 2026-09-08): RU-split кормится 8628 v4 + 2174 v6 префиксами
+            // (`ru_prefixes.h`). До захвата `::/0` v6-половина была бессмысленна (v6 и так шёл
+            // мимо туннеля), теперь она ОБЯЗАТЕЛЬНА: иначе рунет по AAAA уедет в туннель и
+            // «Доступ к сайтам РФ» на dual-stack операторе перестанет работать — ровно тот же
+            // баг, что чинил CONNECT-INVARIANTS §14.2 для AWG-пути.
+            settings.ipv6Settings?.excludedRoutes = Self.ipv6Routes(from: splitTunnelSites)
+        }
+    }
+
+    // Обе половины сплита фильтруют один и тот же список: v4-строки отсеет IPv6RouteSpec,
+    // v6-строки — IPv4RouteSpec. Кормить NEIPv6Route развёрнутым CIDR из ru_prefixes.h нельзя,
+    // ему нужен канон RFC 5952 и сетевой адрес префикса.
+    private static func ipv6Routes(from cidrs: [String]) -> [NEIPv6Route] {
+        cidrs.compactMap { cidr in
+            guard let spec = IPv6RouteSpec(cidr: cidr) else { return nil }
+            return NEIPv6Route(destinationAddress: spec.destinationAddress,
+                               networkPrefixLength: NSNumber(value: spec.networkPrefixLength))
         }
     }
 
@@ -174,9 +230,6 @@ extension PacketTunnelProvider {
         }
 
         // Tunnel settings
-        let ipv6Enabled = false
-        let hideVPNIcon = false
-
         let settings = NEPacketTunnelNetworkSettings(tunnelRemoteAddress: "254.1.1.1")
         settings.mtu = 9000
 
@@ -185,18 +238,8 @@ extension PacketTunnelProvider {
             settings.includedRoutes = [NEIPv4Route.default()]
             return settings
         }()
-
-        settings.ipv6Settings = {
-            guard ipv6Enabled else {
-                return nil
-            }
-            let settings = NEIPv6Settings(addresses: ["fd6e:a81b:704f:1211::1"], networkPrefixLengths: [64])
-            settings.includedRoutes = [NEIPv6Route.default()]
-            if hideVPNIcon {
-                settings.excludedRoutes = [NEIPv6Route(destinationAddress: "::", networkPrefixLength: 128)]
-            }
-            return settings
-        }()
+        // ipv6Settings — НЕ здесь: политика захвата v6 приходит в конфиге (xray_ipv6_capture),
+        // а он декодируется ниже. См. applyXrayIPv6Policy().
 
         do {
             let xrayConfig = try JSONDecoder().decode(XrayConfig.self,
@@ -213,6 +256,7 @@ extension PacketTunnelProvider {
             settings.dnsSettings = !dnsArray.isEmpty
             ? NEDNSSettings(servers: dnsArray)
             : NEDNSSettings(servers: ["1.1.1.1"])
+            applyXrayIPv6Policy(xrayConfig, settings: settings)
             applyXraySplitTunnel(xrayConfig, settings: settings)
 
             // AVPN backend-first (Task 6): cache the network-change reconnect debounce for this tunnel

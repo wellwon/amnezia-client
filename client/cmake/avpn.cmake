@@ -89,6 +89,7 @@ list(APPEND HEADERS
     ${AVPN_SE}/WhitelistVerdict.h
     ${AVPN_SE}/WhitelistDetector.h
     ${AVPN_SE}/DoctorReport.h
+    ${AVPN_SE}/Ipv6Presence.h
     ${AVPN_SE}/CrashGuard.h
     ${AVPN_SE}/TribeNetInfo.h
     ${AVPN_SE}/RuSplitSentinel.h

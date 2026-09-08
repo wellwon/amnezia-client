@@ -255,6 +255,10 @@ namespace amnezia
         // смену пути (старое поведение); 0 = только при смене физического аплинка.
         // features.xray_restart_on_path_loss -> setupXray()/setupSSXray() -> XrayConfig.restartOnPathLoss.
         constexpr QLatin1String xrayRestartOnPathLoss("xray_restart_on_path_loss");
+        // AVPN (IPv6-волна 2026-09-08, iOS NE): 1 = xray-туннель заявляет `::/0` без v6-источника
+        // (v6 не утекает мимо VPN); 0 = прежнее поведение, v6 остаётся на физическом интерфейсе.
+        // features.xray_ipv6_capture -> setupXray()/setupSSXray() -> XrayConfig.ipv6Capture.
+        constexpr QLatin1String xrayIpv6Capture("xray_ipv6_capture");
         // AVPN seamless roaming (2026-09-03, iOS NE, awg-apple tribe.4): политика адаптера AWG на
         // потерю пути — корневые ключи cfg (VpnConnectionTunnelControl::up) -> ios_controller ->
         // WGConfig.swift -> TribeRoamingPolicy.fromConfig. Значения СТРОКАМИ (JSONDecoder-грабля).

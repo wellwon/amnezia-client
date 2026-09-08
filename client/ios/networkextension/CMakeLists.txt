@@ -95,6 +95,7 @@ target_sources(${CLIENT_IOS_NE_TARGET_NAME} PRIVATE
     ${CLIENT_ROOT_DIR}/platforms/ios/PacketTunnelProvider+OpenVPN.swift
     ${CLIENT_ROOT_DIR}/platforms/ios/PacketTunnelProvider+Xray.swift
     ${CLIENT_ROOT_DIR}/platforms/ios/IPv4RouteSpec.swift
+    ${CLIENT_ROOT_DIR}/platforms/ios/IPv6RouteSpec.swift
     ${CLIENT_ROOT_DIR}/platforms/ios/WGConfig.swift
     ${CLIENT_ROOT_DIR}/platforms/ios/XrayConfig.swift
     # AVPN (этап D3): runtime-статус + жизненный цикл protect-колбэка xray-пути (Foundation-only)

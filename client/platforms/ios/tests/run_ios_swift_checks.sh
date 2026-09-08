@@ -30,6 +30,7 @@ xcrun --sdk macosx swiftc -Onone -parse-as-library \
     "$IOS_DIR/TunnelRuntimeStatus.swift" \
     "$IOS_DIR/XraySocketCallbackLifecycle.swift" \
     "$IOS_DIR/IPv4RouteSpec.swift" \
+    "$IOS_DIR/IPv6RouteSpec.swift" \
     "$SCRIPT_DIR/XraySocketCallbackLifecycleTests.swift"
 "$WORK_DIR/xray_lifecycle_tests"
 

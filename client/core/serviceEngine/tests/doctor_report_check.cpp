@@ -76,6 +76,39 @@ int main()
     CHECK(!networkStage(-1, {}, {}, -1, -1, -1).data.contains(QStringLiteral("captive")),
           "network: непроверенные поля не пишутся в data");
 
+    // IPv6-волна 2026-09-08: туннель v4-only забирает ::/0 — на сети С глобальным v6 это
+    // единственное объяснение «v6-only адресат недостижим». Говорим ТОЛЬКО когда есть о чём.
+    {
+        const StageResult withV6 = networkStage(0, QStringLiteral("wifi"), {}, -1, -1, 0, {}, 1);
+        CHECK(withV6.note.contains(QStringLiteral("IPv6")),
+              "network: сеть с глобальным v6 -> в note объяснение про IPv6");
+        CHECK(withV6.status == Ok,
+              "network: IPv6 выключен туннелем — это НЕ проблема сети, статус остаётся Ok");
+        CHECK(withV6.data.value(QStringLiteral("ipv6_lan")).toBool() == true,
+              "network: факт v6 у сети едет в отчёт поддержки");
+        CHECK(withV6.note.contains(QStringLiteral("Wi-Fi")),
+              "network: прежний текст про тип сети не потерян");
+
+        const StageResult noV6 = networkStage(0, QStringLiteral("wifi"), {}, -1, -1, 0, {}, 0);
+        CHECK(!noV6.note.contains(QStringLiteral("IPv6")),
+              "network: сеть без v6 -> ни слова про IPv6 (незачем пугать)");
+        CHECK(noV6.data.value(QStringLiteral("ipv6_lan")).toBool() == false,
+              "network: проверено и v6 нет -> false в отчёт");
+
+        const StageResult unknownV6 = networkStage(0, QStringLiteral("wifi"), {}, -1, -1, 0, {}, -1);
+        CHECK(!unknownV6.note.contains(QStringLiteral("IPv6")),
+              "network: не проверяли -> молчим");
+        CHECK(!unknownV6.data.contains(QStringLiteral("ipv6_lan")),
+              "network: не проверяли -> поля в отчёте нет (честно)");
+
+        CHECK(networkStage(1, QStringLiteral("wifi"), {}, -1, -1, -1, {}, 1)
+                  .note.contains(QStringLiteral("браузер")),
+              "network: captive-портал важнее IPv6 — вердикт стадии не подменяется");
+        CHECK(networkStage(0, QStringLiteral("cellular"), QStringLiteral("lte"), -1, -1, 1, {}, 1)
+                  .note.contains(QStringLiteral("белые списки")),
+              "network: «белые списки» важнее IPv6");
+    }
+
     // D-3: коллапс посекундного профиля (ТСПУ-сигнатура)
     const QList<double> flat{20, 21, 19, 20, 22, 20, 21, 20};
     const QList<double> tspu{25, 24, 20, 2.0, 1.5, 1.0, 0.8, 0.5};

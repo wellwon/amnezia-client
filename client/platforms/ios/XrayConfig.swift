@@ -19,6 +19,11 @@ struct XrayConfig: Decodable {
     // смену пути, включая «пропал и вернулся тот же Wi-Fi»); 0/nil = рестарт ТОЛЬКО при смене
     // физического аплинка (Wi-Fi <-> сотовая), потеря и возврат того же интерфейса ядро не трогают.
     let restartOnPathLoss: Int?
+    // AVPN (IPv6-волна 2026-09-08): 0 = НЕ заявлять v6 в туннеле (прежнее поведение,
+    // kill-switch features.xray_ipv6_capture=false); 1/nil = забирать `::/0` в туннель без
+    // v6-источника, чтобы v6 не утекал мимо VPN. nil трактуется как ЗАХВАТ — см.
+    // applyXrayIPv6Policy() в PacketTunnelProvider+Xray.swift.
+    let ipv6Capture: Int?
 
     private enum CodingKeys: String, CodingKey {
         case dns1
@@ -30,5 +35,6 @@ struct XrayConfig: Decodable {
         case readWriteTimeoutMs = "xray_rw_timeout_ms"
         case networkChangeDebounceMs = "network_change_debounce_ms"
         case restartOnPathLoss = "xray_restart_on_path_loss"
+        case ipv6Capture = "xray_ipv6_capture"
     }
 }

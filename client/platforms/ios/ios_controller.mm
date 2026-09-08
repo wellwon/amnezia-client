@@ -923,6 +923,10 @@ bool IosController::setupXray()
     // AVPN seamless roaming: рестарт ядра только при смене аплинка; 1 = старое поведение.
     finalConfig.insert(configKey::xrayRestartOnPathLoss,
                        avpn::TuningStore::flag(QStringLiteral("xray_restart_on_path_loss"), false) ? 1 : 0);
+    // AVPN IPv6-волна: xray-туннель забирает `::/0` (без v6-источника) — иначе на dual-stack сети
+    // AAAA-трафик уходит мимо VPN с настоящим адресом. Kill-switch с дефолтом TRUE.
+    finalConfig.insert(configKey::xrayIpv6Capture,
+                       avpn::TuningStore::flag(QStringLiteral("xray_ipv6_capture"), true) ? 1 : 0);
 
     QJsonDocument finalConfigDoc(finalConfig);
     QString finalConfigStr(finalConfigDoc.toJson(QJsonDocument::Compact));
@@ -951,6 +955,10 @@ bool IosController::setupSSXray()
     // AVPN seamless roaming: рестарт ядра только при смене аплинка; 1 = старое поведение.
     finalConfig.insert(configKey::xrayRestartOnPathLoss,
                        avpn::TuningStore::flag(QStringLiteral("xray_restart_on_path_loss"), false) ? 1 : 0);
+    // AVPN IPv6-волна: xray-туннель забирает `::/0` (без v6-источника) — иначе на dual-stack сети
+    // AAAA-трафик уходит мимо VPN с настоящим адресом. Kill-switch с дефолтом TRUE.
+    finalConfig.insert(configKey::xrayIpv6Capture,
+                       avpn::TuningStore::flag(QStringLiteral("xray_ipv6_capture"), true) ? 1 : 0);
 
     QJsonDocument finalConfigDoc(finalConfig);
     QString finalConfigStr(finalConfigDoc.toJson(QJsonDocument::Compact));

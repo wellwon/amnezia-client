@@ -1125,6 +1125,10 @@ private:
     bool   m_docSpeedCollapsed = false;
     void docStartNetwork();           // captive + сигналы + форс-whitelist (первая стадия)
     void docNetMaybeDone();           // сведение параллельных проб Network -> networkStage
+    // AVPN (IPv6-волна 2026-09-08): -1 не проверяли | 0 нет | 1 у САМОЙ СЕТИ есть глобальный
+    // IPv6 (мимо туннеля). Срез QNetworkInterface -> чистая Ipv6Presence.h::hasOffTunnelGlobalV6.
+    // Гейт features.ipv6_notice (kill-switch, default true): false -> всегда -1, Доктор молчит.
+    int  detectLanIpv6() const;
     void docStartConnect();           // вход фазы Connect (вынесен из startDoctor)
     void docDirectSpeed(double down, int idle, int loaded, bool collapsed); // A/B мимо туннеля
     void crashFlushPending();         // CR-1: отправка pending краш-отчётов (kill-switch crash_report)

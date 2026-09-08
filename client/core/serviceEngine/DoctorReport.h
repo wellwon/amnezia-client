@@ -45,10 +45,19 @@ inline int clampStageTimeoutMs(double v)
 //   captive: -1 не проверялось | 0 нет | 1 портал (generate_204 вернул редирект/чужое тело);
 //   cellGen: "5g"/"lte"/"3g"/"2g"/"" (пусто = неизвестно/не сотовая);
 //   metered/roaming: -1 неизвестно | 0 | 1;
-//   wlForced: -1 не гонялись | 0 сеть нормальная | 1 сигнатура «белых списков».
+//   wlForced: -1 не гонялись | 0 сеть нормальная | 1 сигнатура «белых списков»;
+//   lanIpv6:  -1 не проверяли | 0 у сети нет глобального v6 | 1 есть (Ipv6Presence.h).
+//
+// IPv6 (волна 2026-09-08): туннель v4-only забирает `::/0` и роняет его без v6-источника
+// (CONNECT-INVARIANTS §24) — адресат ТОЛЬКО с IPv6 при включённом VPN недостижим, и системная
+// ошибка («Operation not permitted») об этом не говорит НИЧЕГО. Доктор — то место, куда человек
+// приходит за причиной, поэтому строку произносим здесь. Правила: (а) только когда у сети
+// реально есть глобальный v6 — иначе фраза пугает без повода; (б) статус стадии НЕ портим,
+// это осознанная политика, а не поломка; (в) вердикты captive/«белые списки» важнее — там note
+// занят настоящей проблемой.
 inline StageResult networkStage(int captive, const QString &netType, const QString &cellGen,
                                 int metered, int roaming, int wlForced,
-                                const QString &carrier = QString())
+                                const QString &carrier = QString(), int lanIpv6 = -1)
 {
     StageResult r; r.id = QStringLiteral("network");
     if (captive >= 0) r.data.insert(QStringLiteral("captive"), captive == 1);
@@ -58,6 +67,7 @@ inline StageResult networkStage(int captive, const QString &netType, const QStri
     if (metered >= 0) r.data.insert(QStringLiteral("metered"), metered == 1);
     if (roaming >= 0) r.data.insert(QStringLiteral("roaming"), roaming == 1);
     if (wlForced >= 0) r.data.insert(QStringLiteral("wl_forced"), wlForced == 1);
+    if (lanIpv6 >= 0)  r.data.insert(QStringLiteral("ipv6_lan"), lanIpv6 == 1);
 
     const QString netRu = netType == QLatin1String("cellular")
             ? (cellGen.isEmpty() ? QStringLiteral("сотовая")
@@ -87,6 +97,8 @@ inline StageResult networkStage(int captive, const QString &netType, const QStri
                              : QStringLiteral("Сеть: %1").arg(netRu);
     if (roaming == 1)
         r.note += QStringLiteral(" (роуминг)");
+    if (lanIpv6 == 1)
+        r.note += QStringLiteral(" · IPv6 отключён на время VPN");
     return r;
 }
 
