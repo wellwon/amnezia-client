@@ -54,6 +54,8 @@ launch; it does not prove the new UI or VPN connection stayed healthy. Before
 publishing a release, exercise a signed/notarized DMG update in an isolated macOS
 instance and confirm version, settings and connection recovery after relaunch.
 
-The changes are source-only until included in a new signed/notarized release.
+The changes shipped in the signed/notarized macOS 5.1.82 (111) release on 2026-09-09,
+source tag `macos-5.1.82-111`. The versioned DMG is available at
+`https://tribevpn.com/dl/TribeVPN-5.1.82-111.dmg`.
 An already running 5.1.78 still uses its old updater and needs a one-time manual
 restart or installation to acquire the fixed updater.
