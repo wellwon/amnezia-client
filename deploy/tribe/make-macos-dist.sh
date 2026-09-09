@@ -14,14 +14,14 @@
 set -euo pipefail
 STAGE="${1:-sign}"
 
-REPO="$HOME/amnezia-client"
-BUILD="$REPO/deploy/build-macos-desktop"
+REPO="$(cd "$(dirname "$0")/../.." && pwd)"
+BUILD="${TRIBE_RELEASE_BUILD:-$REPO/deploy/build-macos-desktop}"
 APP="$BUILD/client/TribeVPN.app"
 SRV="$BUILD/service/server"
 QTBIN="$HOME/Qt/6.10.2/macos/bin"
 DEVID="Developer ID Application: WellWon Limited (Q7DVH5MCWF)"
 ENTS="$REPO/deploy/tribe/tribe-app.entitlements"
-DIST="$HOME/avpn-build/dist"; DMG="$DIST/Tribe VPN.dmg"
+DIST="${TRIBE_RELEASE_DIST:-$HOME/avpn-build/dist}"; DMG="$DIST/Tribe VPN.dmg"
 SIGN=(codesign --force --options runtime --timestamp --sign "$DEVID")
 # Нотаризация ПРЯМЫМИ ключами (НЕ keychain-профиль AC_NOTARY: он спонтанно пропадал из
 # кичейна — см. memory tribe-notary-keychain-flake; прямые аргументы не зависят от кичейна)
@@ -35,7 +35,7 @@ rm -f  "$APP/Contents/Resources/tribe-svc.tar.gz" "$APP/Contents/Resources/tribe
 rm -rf "$APP/Contents/Helpers"
 
 echo "=== 1. Qt в app (macdeployqt) ==="
-"$QTBIN/macdeployqt" "$APP" -qmldir="$REPO/client/ui/qml" >/dev/null 2>&1 || true
+"$QTBIN/macdeployqt" "$APP" -qmldir="$REPO/client/ui/qml"
 
 echo "=== 2. Qt в демон (самодостаточность) ==="
 bash "$REPO/deploy/tribe/bundle-daemon-qt.sh" "$SRV" >/dev/null
@@ -87,10 +87,12 @@ codesign --verify --deep --strict --verbose=1 "$APP" && echo "  ✅ подпис
 
 if [ "$STAGE" = notarize ]; then
   echo "=== 7. Нотаризация app ==="
-  ZIP=/tmp/TribeVPN-notarize.zip; rm -f "$ZIP"
+  ZIP_DIR="$(mktemp -d /tmp/TribeVPN-notarize.XXXXXX)"
+  ZIP="$ZIP_DIR/app.zip"
   ditto -c -k --keepParent "$APP" "$ZIP"
   xcrun notarytool submit "$ZIP" "${NOTARY_KEY[@]}" --wait
   xcrun stapler staple "$APP"
+  rm -rf -- "$ZIP_DIR"
 fi
 
 echo "=== 8. dmg (фирменный layout через dmgbuild; staging чистый — НЕ create-dmg: он путал наш app со stale в dist/) ==="

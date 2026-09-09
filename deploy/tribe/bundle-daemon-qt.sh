@@ -13,7 +13,7 @@ SRVDIR="${1:?укажи каталог с Tribe-service}"
 DAEMON="$SRVDIR/Tribe-service"
 [ -x "$DAEMON" ] || { echo "нет $DAEMON"; exit 1; }
 
-APP_FW="$HOME/amnezia-client/deploy/build-macos-desktop/client/TribeVPN.app/Contents/Frameworks"
+APP_FW="$SRVDIR/../../client/TribeVPN.app/Contents/Frameworks"
 QT_LIB="$HOME/Qt/6.10.2/macos/lib"
 FW="$SRVDIR/Frameworks"
 rm -rf "$FW"; mkdir -p "$FW"
