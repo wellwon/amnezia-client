@@ -15,11 +15,18 @@ namespace avpn {
 ConfigService::ConfigService(QNetworkAccessManager *nam, const QString &baseUrl,
                              const QString &pubKeyHex, const QStringList &bakedEdges,
                              QObject *parent)
-    : QObject(parent), m_nam(nam), m_pubKeyHex(pubKeyHex), m_bakedEdges(bakedEdges)
+    : QObject(parent), m_nam(nam), m_pubKeyHex(pubKeyHex), m_bakedEdges(bakedEdges), m_refreshTimer(this)
 {
     m_activeBase = ConfigStore::activeEdge(baseUrl.isEmpty() && !bakedEdges.isEmpty()
                                                ? bakedEdges.first()
                                                : baseUrl);
+#if defined(Q_OS_MACOS) && !defined(MACOS_NE)
+    // macOS часто работает неделями без выхода: обновления должны обнаруживаться
+    // и в уже открытом приложении. После сна Qt доставит просроченный timeout.
+    m_refreshTimer.setObjectName(QStringLiteral("macosConfigRefresh"));
+    m_refreshTimer.setInterval(15 * 60 * 1000);
+    connect(&m_refreshTimer, &QTimer::timeout, this, &ConfigService::fetchConfig);
+#endif
 }
 
 void ConfigService::start()
@@ -37,6 +44,9 @@ void ConfigService::start()
     // 2) свежий фетч (async).
     fetchConfig();
     fetchEdges();
+#if defined(Q_OS_MACOS) && !defined(MACOS_NE)
+    m_refreshTimer.start();
+#endif
 }
 
 int ConfigService::failThreshold() const
@@ -47,12 +57,14 @@ int ConfigService::failThreshold() const
 
 void ConfigService::fetchConfig()
 {
-    if (!m_nam)
+    if (!m_nam || m_configInFlight)
         return;
+    m_configInFlight = true;
     QNetworkRequest req{QUrl(m_activeBase + QStringLiteral("/v1/config"))};
     QNetworkReply *reply = m_nam->get(req);
     armTimeout(reply);
     connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+        m_configInFlight = false;
         reply->deleteLater();
         const int code = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
         // Только транспортный сбой = проблема ЭТОГО входа → повод шагнуть на другой edge:

@@ -5,6 +5,7 @@
 #include "ConfigTypes.h"
 #include <QObject>
 #include <QStringList>
+#include <QTimer>
 
 class QNetworkAccessManager;
 
@@ -44,6 +45,8 @@ private:
     QStringList  m_bakedEdges;
     RemoteConfig m_config;
     int          m_failStreak = 0;
+    QTimer       m_refreshTimer;
+    bool         m_configInFlight = false;
 };
 
 } // namespace avpn

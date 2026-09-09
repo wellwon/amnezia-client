@@ -76,6 +76,14 @@ chmod +x "$APP/Contents/Resources/tribe-svc-install.sh"
 echo "  tarball: $(ls -la "$APP/Contents/Resources/tribe-svc.tar.gz" | awk '{print $5}') байт"
 
 echo "=== 5/6. Подпись app: фреймворки/плагины inside-out + app c entitlements ==="
+# Scripts are sealed resources, not nested Mach-O code. Keep the upstream executable
+# path working via a relative symlink; avoid fragile signatures in extended attributes.
+for SCRIPT in "$APP/Contents/MacOS/"*.sh; do
+  [ -f "$SCRIPT" ] && [ ! -L "$SCRIPT" ] || continue
+  SCRIPT_NAME="$(basename "$SCRIPT")"
+  mv "$SCRIPT" "$APP/Contents/Resources/$SCRIPT_NAME"
+  ln -s "../Resources/$SCRIPT_NAME" "$SCRIPT"
+done
 find "$APP/Contents/Frameworks" -type f \( -name '*.dylib' -o -path '*/Versions/*/Qt*' \) -print0 \
   | while IFS= read -r -d '' f; do "${SIGN[@]}" "$f" 2>/dev/null; done
 find "$APP/Contents/PlugIns" -type f -name '*.dylib' -print0 \
