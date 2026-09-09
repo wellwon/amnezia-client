@@ -550,7 +550,9 @@ AvpnEngineQml::AvpnEngineQml(VpnConnection *conn, SecureAppSettingsRepository *s
                 // AVPN backend-first: фоновый LKG-рефреш подписки по серверному интервалу
                 // (H-3 бэклога). qBound — защита от абсурда: 10 мин..7 суток.
                 const int refreshMs = qBound(600, c.subscriptionRefreshIntervalS, 7 * 24 * 3600) * 1000;
-                m_subRefreshTimer.start(refreshMs);
+                // Periodic config checks must not postpone subscription refresh forever.
+                if (!m_subRefreshTimer.isActive() || m_subRefreshTimer.interval() != refreshMs)
+                    m_subRefreshTimer.start(refreshMs);
                 m_remoteCfg = c;
                 // AVPN (diag-report, Task 4 bff-3): timestamp применения конфига → возраст в отчёте.
                 m_lastConfigAppliedEpoch = QDateTime::currentSecsSinceEpoch();

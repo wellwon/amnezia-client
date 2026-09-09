@@ -4,6 +4,7 @@ Run from the client repository:
 
 ```sh
 bash client/core/serviceEngine/tests/build_self_update.sh
+bash client/core/serviceEngine/tests/build_config_refresh.sh
 WW_TEST=1 WW_TEST_ID=self-update python3 -B -m unittest discover \
   -s client/core/serviceEngine/tests -p test_self_update.py -v
 ```
@@ -19,6 +20,11 @@ stubbed; PlistBuddy and file-system operations use local fixtures. It covers liv
 parent/exit/timeout, cancellation before handoff, successful replacement, download
 and verification failures, failed replacement, failed launch and failed rollback.
 It does not alter `/Applications`, launch the VPN, use its settings or access keys.
+
+The config refresh test uses a loopback HTTP server and in-memory storage. It checks
+that a running macOS client discovers a changed recommended version without an app
+restart and that slow requests do not overlap. The production interval is 15 minutes.
+Unchanged subscription refresh intervals retain their existing timer deadline.
 
 ## Installation contract
 
